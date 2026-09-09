@@ -26,3 +26,6 @@ dist-ssr
 # Screenshot / debug capture artifacts
 shots/
 *.png
+
+# Recorded browser console output from scripts/watch-console.mjs
+scripts/console.log

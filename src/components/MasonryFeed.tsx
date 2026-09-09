@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Link, useViewTransitionState } from "react-router"
 import { Search, Share, ArrowUpRight } from "lucide-react"
 import { toast } from "sonner"
@@ -52,8 +52,10 @@ const PinCard = memo(function PinCard({
   const [saved, setSaved] = useState(false)
   const imgRef = useRef<HTMLDivElement | null>(null)
   const to = `/pin/${pin.id}`
-  // Only the card being navigated to may carry the name: view-transition-name
-  // has to be unique across the document while a transition is running.
+  // True on both legs: useViewTransitionState matches the transition's current
+  // location as well as its next one, so this card claims the name heading out
+  // to the pin and heading back from it. Only the one card matching the pin
+  // route ever claims it — the name must be unique per document.
   const morphing = useViewTransitionState(to)
   const fly = useSaveFly()
   const imgH = rect.h - footerHeight
@@ -230,8 +232,11 @@ export function MasonryFeed({
   // Taffy to report a height — the scroller can't be scrolled while it's 0.
   // Assigning scrollTop fires a real scroll event, so onScroll picks up the
   // virtualization state on its own; no setState needed here.
+  // Layout effect, not passive: this has to land before paint, so a returning
+  // view transition captures the card at its restored position rather than
+  // mid-jump from the top of the feed.
   const restored = useRef(false)
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = scrollerRef.current
     if (!el || restored.current || !ready || totalHeight <= 0) return
     restored.current = true

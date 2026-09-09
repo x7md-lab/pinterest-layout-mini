@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react"
 import type { Pin } from "@/data"
-import { ensureTaffy, layoutMasonry, type MasonryResult } from "@/lib/taffy"
+import { ensureTaffy, isTaffyReady, layoutMasonry, type MasonryResult } from "@/lib/taffy"
 
 export type UseMasonry = MasonryResult & {
   columns: number
@@ -8,18 +8,26 @@ export type UseMasonry = MasonryResult & {
   ready: boolean
 }
 
+// Last observed width, kept across mounts. The ResizeObserver only reports
+// after the element exists, so a remounting feed would measure 0 on its first
+// render and lay nothing out; seeding from the previous mount avoids that
+// empty frame. Self-correcting — the observer overwrites it immediately.
+let lastWidth = 0
+
 /** Observe an element's content-box width. */
 export function useContainerWidth<T extends HTMLElement>() {
   const ref = useRef<T | null>(null)
-  const [width, setWidth] = useState(0)
+  const [width, setWidth] = useState(lastWidth)
   useEffect(() => {
     const el = ref.current
     if (!el) return
     const ro = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width ?? 0
+      lastWidth = w
       setWidth((prev) => (Math.abs(prev - w) > 0.5 ? w : prev))
     })
     ro.observe(el)
+    lastWidth = el.clientWidth
     setWidth(el.clientWidth)
     return () => ro.disconnect()
   }, [])
@@ -52,7 +60,9 @@ export function useMasonry(
 ): UseMasonry {
   const { containerWidth, targetColumnWidth, gutter, footerHeight } = opts
 
-  const [ready, setReady] = useState(false)
+  // Start ready if the engine is already loaded, so a remount (route change
+  // back to the feed) lays out on the first render rather than a tick later.
+  const [ready, setReady] = useState(isTaffyReady)
   useEffect(() => {
     let alive = true
     ensureTaffy().then(() => {

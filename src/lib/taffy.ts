@@ -10,11 +10,25 @@ import init, {
 } from "taffy-layout/wasm"
 
 let readyPromise: Promise<void> | null = null
+let loaded = false
 
 /** Load the Taffy WASM module once. Safe to call repeatedly. */
 export function ensureTaffy(): Promise<void> {
-  if (!readyPromise) readyPromise = init().then(() => undefined)
+  if (!readyPromise)
+    readyPromise = init().then(() => {
+      loaded = true
+    })
   return readyPromise
+}
+
+/**
+ * Synchronous "is the engine already up?". Lets a remounting feed lay out on
+ * its very first render instead of waiting a tick for the promise — without it
+ * a route change back to the feed paints an empty list for a frame, which the
+ * View Transition API captures as an empty incoming state.
+ */
+export function isTaffyReady(): boolean {
+  return loaded
 }
 
 export type MasonryItem = { id: number; height: number }

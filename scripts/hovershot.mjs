@@ -1,0 +1,12 @@
+import puppeteer from "puppeteer-core"
+const b = await puppeteer.connect({ browserURL: "http://127.0.0.1:9222", defaultViewport: null })
+const p = await b.newPage()
+await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 })
+await p.goto("http://localhost:5173", { waitUntil: "domcontentloaded" })
+await new Promise(r=>setTimeout(r,2000))
+const card = await p.$('[style*="translate3d"]')
+if (card) await card.hover()
+await new Promise(r=>setTimeout(r,500))
+await p.screenshot({ path: "shots/desktop-hover.png" })
+console.log("hover shot saved")
+b.disconnect()

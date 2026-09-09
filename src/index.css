@@ -131,3 +131,32 @@
     @apply font-sans;
     }
 }
+/* ---- View transitions (feed card <-> pin preview) ---------------------- */
+
+/* The card tile and the preview hero have different aspect ratios, so let the
+   group animate size/position while the two snapshots cross-fade inside it. */
+::view-transition-group(pin-image) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+::view-transition-old(pin-image),
+::view-transition-new(pin-image) {
+  height: 100%;
+  object-fit: cover;
+  animation-duration: 320ms;
+}
+
+/* Keep the surrounding page cross-fade quicker than the morph. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 180ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

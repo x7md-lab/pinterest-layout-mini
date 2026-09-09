@@ -19,3 +19,14 @@ export function useMediaQuery(query: string): boolean {
 export function useIsMobile() {
   return useMediaQuery("(max-width: 1023px)")
 }
+
+/**
+ * True only for a fine, hover-capable pointer (mouse/trackpad) — never touch.
+ * Matches the `@media (hover:hover)` guard Tailwind v4 puts around `hover:`
+ * and `group-hover:`, so JS and CSS agree on what "hoverable" means. Use it to
+ * skip rendering hover-only UI: an `opacity-0` overlay is still hit-testable,
+ * so leaving one mounted on touch turns it into an invisible tap target.
+ */
+export function useCanHover() {
+  return useMediaQuery("(hover: hover) and (pointer: fine)")
+}

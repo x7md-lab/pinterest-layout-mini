@@ -1,15 +1,22 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react"
+import { Link, useViewTransitionState } from "react-router"
 import { Search, Share, ArrowUpRight } from "lucide-react"
 import { toast } from "sonner"
 import type { Pin } from "@/data"
 import type { Rect } from "@/lib/taffy"
 import { useContainerWidth, useMasonry } from "@/hooks/useMasonry"
+import { useCanHover } from "@/hooks/useMediaQuery"
 import { Sidebar, BottomBar } from "@/components/Nav"
 import { MoreActions } from "@/components/MoreActions"
 import { useSaveFly } from "@/components/SaveFly"
 import { SoundControl } from "@/components/SoundControl"
 import { useSound } from "@/components/SoundProvider"
 import { playCue, CUES } from "@/lib/sfx"
+
+// Survives unmount so returning from a pin preview lands mid-feed, not at top.
+// Written on scroll rather than in an unmount cleanup: passive cleanups run
+// after the node is detached, where scrollTop always reads 0.
+let lastScrollTop = 0
 
 const GUTTER = 16
 const FOOTER = 40 // slim caption-free footer holding the "more actions" dots
@@ -27,19 +34,27 @@ function targetColWidthFor(width: number) {
  *   plus a board pill (top-left) and share/visit round buttons (bottom) on hover;
  * - a slim caption-free footer below the image whose bottom-right holds the
  *   always-visible "More actions" (three dots), like data-test-id=more-actions-button.
+ * The overlay is mounted only when `canHover`; on touch those same actions are
+ * reachable from the footer drawer and the preview page.
  * Memoized so scrolling only re-renders items whose rect changed.
  */
 const PinCard = memo(function PinCard({
   pin,
   rect,
   footerHeight,
+  canHover,
 }: {
   pin: Pin
   rect: Rect
   footerHeight: number
+  canHover: boolean
 }) {
   const [saved, setSaved] = useState(false)
-  const imgRef = useRef<HTMLDivElement | null>(null)
+  const imgRef = useRef<HTMLAnchorElement | null>(null)
+  const to = `/pin/${pin.id}`
+  // Only the card being navigated to may carry the name: view-transition-name
+  // has to be unique across the document while a transition is running.
+  const morphing = useViewTransitionState(to)
   const fly = useSaveFly()
   const imgH = rect.h - footerHeight
 
@@ -73,12 +88,16 @@ const PinCard = memo(function PinCard({
         contain: "layout paint style",
       }}
     >
-      {/* Image */}
-      <div
+      {/* Image — opens the preview page. */}
+      <Link
+        to={to}
+        viewTransition
         ref={imgRef}
-        className="relative w-full overflow-hidden rounded-[16px]"
+        aria-label={`Preview: ${pin.title}`}
+        className="relative block w-full overflow-hidden rounded-[16px]"
         style={{
           height: imgH,
+          viewTransitionName: morphing ? "pin-image" : undefined,
           background: `linear-gradient(150deg, oklch(0.85 0.12 ${pin.hue}), oklch(0.6 0.16 ${(pin.hue + 40) % 360}))`,
         }}
       >
@@ -86,8 +105,15 @@ const PinCard = memo(function PinCard({
           {pin.id}
         </span>
 
-        {/* Hover overlay */}
-        <div className="pointer-events-none absolute inset-0 bg-black/0 opacity-0 transition group-hover:bg-black/20 group-hover:opacity-100">
+        {/* Hover overlay. Rendered only for hover-capable pointers: Tailwind v4
+            wraps group-hover in @media (hover:hover), so on touch it stayed at
+            opacity-0 while its pointer-events-auto buttons kept hit-testing —
+            invisible Save/Share/Visit targets covering the whole card. */}
+        {canHover && (
+        <div
+          onClick={(e) => e.preventDefault()}
+          className="pointer-events-none absolute inset-0 bg-black/0 opacity-0 transition group-hover:bg-black/20 group-hover:opacity-100"
+        >
           {/* Board selector pill (top-left) */}
           <button className="pointer-events-auto absolute top-2 left-2 flex items-center gap-1 rounded-full bg-white/95 px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm">
             {pin.tag}
@@ -127,7 +153,8 @@ const PinCard = memo(function PinCard({
             <Share className="size-4" />
           </button>
         </div>
-      </div>
+        )}
+      </Link>
 
       {/* Footer: avatar (left) + always-visible More actions (right), no caption */}
       <div
@@ -155,6 +182,7 @@ export function MasonryFeed({
   const scrollerRef = useRef<HTMLDivElement | null>(null)
   const [contentRef, width] = useContainerWidth<HTMLDivElement>()
   const { keyboard: keyboardSounds } = useSound()
+  const canHover = useCanHover()
 
   const { byId, totalHeight, ready } = useMasonry(pins, {
     containerWidth: width,
@@ -175,6 +203,7 @@ export function MasonryFeed({
       if (el) {
         setScrollTop(el.scrollTop)
         setViewportH(el.clientHeight)
+        lastScrollTop = el.scrollTop
         if (
           hasMore &&
           el.scrollTop + el.clientHeight > totalHeight - el.clientHeight
@@ -190,6 +219,18 @@ export function MasonryFeed({
     const el = scrollerRef.current
     if (el) setViewportH(el.clientHeight)
   }, [])
+
+  // Come back from the preview page at the same place in the feed. Waits for
+  // Taffy to report a height — the scroller can't be scrolled while it's 0.
+  // Assigning scrollTop fires a real scroll event, so onScroll picks up the
+  // virtualization state on its own; no setState needed here.
+  const restored = useRef(false)
+  useEffect(() => {
+    const el = scrollerRef.current
+    if (!el || restored.current || !ready || totalHeight <= 0) return
+    restored.current = true
+    if (lastScrollTop > 0) el.scrollTop = lastScrollTop
+  }, [ready, totalHeight])
 
   const top = scrollTop - viewportH * OVERSCAN
   const bottom = scrollTop + viewportH * (1 + OVERSCAN)
@@ -240,6 +281,7 @@ export function MasonryFeed({
                 pin={pin}
                 rect={byId.get(pin.id)!}
                 footerHeight={FOOTER}
+                canHover={canHover}
               />
             ))}
           </div>

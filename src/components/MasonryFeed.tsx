@@ -50,7 +50,7 @@ const PinCard = memo(function PinCard({
   canHover: boolean
 }) {
   const [saved, setSaved] = useState(false)
-  const imgRef = useRef<HTMLAnchorElement | null>(null)
+  const imgRef = useRef<HTMLDivElement | null>(null)
   const to = `/pin/${pin.id}`
   // Only the card being navigated to may carry the name: view-transition-name
   // has to be unique across the document while a transition is running.
@@ -88,13 +88,10 @@ const PinCard = memo(function PinCard({
         contain: "layout paint style",
       }}
     >
-      {/* Image — opens the preview page. */}
-      <Link
-        to={to}
-        viewTransition
+      {/* Image */}
+      <div
         ref={imgRef}
-        aria-label={`Preview: ${pin.title}`}
-        className="relative block w-full overflow-hidden rounded-[16px]"
+        className="relative w-full overflow-hidden rounded-[16px]"
         style={{
           height: imgH,
           viewTransitionName: morphing ? "pin-image" : undefined,
@@ -105,56 +102,65 @@ const PinCard = memo(function PinCard({
           {pin.id}
         </span>
 
+        {/* Stretched link to the preview. A sibling of the overlay controls,
+            not their parent: buttons nested in an anchor are invalid HTML and
+            trap screen readers and tab order. Sits below them in the stack, so
+            the overlay's own buttons win the hit test and the rest of the tile
+            still opens the preview. */}
+        <Link
+          to={to}
+          viewTransition
+          aria-label={`Preview: ${pin.title}`}
+          className="absolute inset-0 z-0"
+        />
+
         {/* Hover overlay. Rendered only for hover-capable pointers: Tailwind v4
             wraps group-hover in @media (hover:hover), so on touch it stayed at
             opacity-0 while its pointer-events-auto buttons kept hit-testing —
             invisible Save/Share/Visit targets covering the whole card. */}
         {canHover && (
-        <div
-          onClick={(e) => e.preventDefault()}
-          className="pointer-events-none absolute inset-0 bg-black/0 opacity-0 transition group-hover:bg-black/20 group-hover:opacity-100"
-        >
-          {/* Board selector pill (top-left) */}
-          <button className="pointer-events-auto absolute top-2 left-2 flex items-center gap-1 rounded-full bg-white/95 px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm">
-            {pin.tag}
-            <svg viewBox="0 0 24 24" className="size-3.5" aria-hidden>
-              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.5" />
-            </svg>
-          </button>
-          {/* Save (top-right) */}
-          <button
-            onClick={toggleSave}
-            className={
-              "pointer-events-auto absolute top-2 right-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm " +
-              (saved ? "bg-neutral-900" : "bg-rose-600 hover:bg-rose-700")
-            }
-          >
-            {saved ? "Saved" : "Save"}
-          </button>
-          {/* Visit (bottom-left) + Share (bottom-right) */}
-          <button
-            aria-label="Visit"
-            onClick={() => {
-              toast("Opening link…")
-              playCue(CUES.visit)
-            }}
-            className="pointer-events-auto absolute bottom-2 left-2 flex size-9 items-center justify-center rounded-full bg-white/95 text-neutral-800 shadow-sm hover:bg-white"
-          >
-            <ArrowUpRight className="size-4" />
-          </button>
-          <button
-            aria-label="Share"
-            onClick={() => {
-              toast.success("Link copied to clipboard")
-              playCue(CUES.share)
-            }}
-            className="pointer-events-auto absolute right-2 bottom-2 flex size-9 items-center justify-center rounded-full bg-white/95 text-neutral-800 shadow-sm hover:bg-white"
-          >
-            <Share className="size-4" />
-          </button>
-        </div>
+          <div className="pointer-events-none absolute inset-0 z-10 bg-black/0 opacity-0 transition group-hover:bg-black/20 group-hover:opacity-100">
+            {/* Board selector pill (top-left) */}
+            <button className="pointer-events-auto absolute top-2 left-2 flex items-center gap-1 rounded-full bg-white/95 px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm">
+              {pin.tag}
+              <svg viewBox="0 0 24 24" className="size-3.5" aria-hidden>
+                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.5" />
+              </svg>
+            </button>
+            {/* Save (top-right) */}
+            <button
+              onClick={toggleSave}
+              className={
+                "pointer-events-auto absolute top-2 right-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm " +
+                (saved ? "bg-neutral-900" : "bg-rose-600 hover:bg-rose-700")
+              }
+            >
+              {saved ? "Saved" : "Save"}
+            </button>
+            {/* Visit (bottom-left) + Share (bottom-right) */}
+            <button
+              aria-label="Visit"
+              onClick={() => {
+                toast("Opening link…")
+                playCue(CUES.visit)
+              }}
+              className="pointer-events-auto absolute bottom-2 left-2 flex size-9 items-center justify-center rounded-full bg-white/95 text-neutral-800 shadow-sm hover:bg-white"
+            >
+              <ArrowUpRight className="size-4" />
+            </button>
+            <button
+              aria-label="Share"
+              onClick={() => {
+                toast.success("Link copied to clipboard")
+                playCue(CUES.share)
+              }}
+              className="pointer-events-auto absolute right-2 bottom-2 flex size-9 items-center justify-center rounded-full bg-white/95 text-neutral-800 shadow-sm hover:bg-white"
+            >
+              <Share className="size-4" />
+            </button>
+          </div>
         )}
-      </Link>
+      </div>
 
       {/* Footer: avatar (left) + always-visible More actions (right), no caption */}
       <div

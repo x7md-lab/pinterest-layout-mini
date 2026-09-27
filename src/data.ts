@@ -6,6 +6,24 @@ export type Pin = {
   /** width / height of the "image", drives masonry variety (like Pinterest's known dims) */
   aspect: number
   hue: number
+  /** Real media, when the pin comes from a local folder rather than the generator. */
+  media?: Media
+}
+
+export type MediaKind = "image" | "gif" | "video"
+
+export type Media = {
+  /** Object URL for the File; revoked when the folder is replaced. */
+  url: string
+  kind: MediaKind
+  mime: string
+  name: string
+  /** Path relative to the picked folder's parent, e.g. "photos/2024/a.jpg". */
+  path: string
+  bytes: number
+  /** Intrinsic size; 0 when it couldn't be determined. */
+  width: number
+  height: number
 }
 
 const titles = [

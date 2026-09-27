@@ -65,6 +65,9 @@ importers:
       uisfx:
         specifier: ^0.4.0
         version: 0.4.0
+      use-fs:
+        specifier: 2.0.0
+        version: 2.0.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
     devDependencies:
       '@testing-library/dom':
         specifier: ^10.4.1
@@ -1397,6 +1400,10 @@ packages:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
     engines: {node: '>= 4'}
 
+  ignore@7.0.10:
+    resolution: {integrity: sha512-HpbUakT7xp5miBUywCHf36ZEuAJNklBJDDsGpUIjMzOSmM8ELSfA9Sa/QDPeNeqeoN31u+UTCkL4klCOVvRm4Q==}
+    engines: {node: '>= 4'}
+
   import-fresh@3.3.1:
     resolution: {integrity: sha512-TR3KfrTZTYLPB6jUjfx6MF9WcWrHL9su5TObK4ZkYgBdWKPOFoSoQIdEuTuR82pmtxH2spWG9h6etwfr1pLBqQ==}
     engines: {node: '>=6'}
@@ -2364,6 +2371,13 @@ packages:
     hasBin: true
     peerDependencies:
       browserslist: '>= 4.21.0'
+
+  use-fs@2.0.0:
+    resolution: {integrity: sha512-IW9ChnNa0jeBB9OhF7DzuqMCP4pCM2Kfip4yXw2M7SjymjUOkyhBw3W6KNbn2UNNzhCo1k0+D3TojYXr0P+JEA==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      react: '>=17'
+      react-dom: '>=17'
 
   use-sync-external-store@1.6.0:
     resolution: {integrity: sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w==}
@@ -3721,6 +3735,8 @@ snapshots:
 
   ignore@5.3.2: {}
 
+  ignore@7.0.10: {}
+
   import-fresh@3.3.1:
     dependencies:
       parent-module: 1.0.1
@@ -4595,6 +4611,12 @@ snapshots:
       browserslist: 4.28.9
       escalade: 3.2.0
       picocolors: 1.1.1
+
+  use-fs@2.0.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+    dependencies:
+      ignore: 7.0.10
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
 
   use-sync-external-store@1.6.0(react@19.2.8):
     dependencies:

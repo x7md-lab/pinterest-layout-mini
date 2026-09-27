@@ -14,6 +14,9 @@ export type UseMasonry = MasonryResult & {
 // empty frame. Self-correcting — the observer overwrites it immediately.
 let lastWidth = 0
 
+/** Max cell height as a multiple of column width, as in the userscript. */
+const TALL_CAP = 2.2
+
 /** Observe an element's content-box width. */
 export function useContainerWidth<T extends HTMLElement>() {
   const ref = useRef<T | null>(null)
@@ -88,7 +91,11 @@ export function useMasonry(
     }
     const items = pins.map((p) => ({
       id: p.id,
-      height: Math.round(columnWidth / p.aspect) + footerHeight,
+      // A real folder will hold a 1:12 screenshot strip; uncapped, one of those
+      // stretches a column to absurdity and starves the rest of the feed.
+      height:
+        Math.min(Math.round(columnWidth / p.aspect), Math.round(columnWidth * TALL_CAP)) +
+        footerHeight,
     }))
     return layoutMasonry({ items, columns, columnWidth, gutter })
     // eslint-disable-next-line react-hooks/exhaustive-deps

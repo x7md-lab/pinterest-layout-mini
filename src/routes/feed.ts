@@ -5,4 +5,8 @@ export type FeedContext = {
   pins: Pin[]
   onLoadMore: () => void
   hasMore: boolean
+  /** Name of the local folder the feed shows, or null for the generated feed. */
+  folder: string | null
+  openFolder: () => void
+  closeFolder: () => void
 }

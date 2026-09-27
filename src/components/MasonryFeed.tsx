@@ -1,14 +1,17 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Link, useViewTransitionState } from "react-router"
-import { Search, Share, ArrowUpRight } from "lucide-react"
+import { Search, Share, ArrowUpRight, FolderOpen, X } from "lucide-react"
 import { toast } from "sonner"
-import type { Pin } from "@/data"
+import type { Media, Pin } from "@/data"
+import { badgeFor } from "@/lib/folder"
+import { cn } from "@/lib/utils"
 import type { Rect } from "@/lib/taffy"
 import { useContainerWidth, useMasonry } from "@/hooks/useMasonry"
 import { useCanHover } from "@/hooks/useMediaQuery"
 import { Sidebar, BottomBar } from "@/components/Nav"
 import { MoreActions } from "@/components/MoreActions"
 import { useSaveFly } from "@/components/SaveFly"
+import type { FeedContext } from "@/routes/feed"
 import { SoundControl } from "@/components/SoundControl"
 import { useSound } from "@/components/SoundProvider"
 import { playCue, CUES } from "@/lib/sfx"
@@ -26,6 +29,54 @@ function targetColWidthFor(width: number) {
   if (width < 500) return Math.floor((width - GUTTER) / 2) // 2 cols on phones
   if (width < 800) return 220
   return 236
+}
+
+/**
+ * A folder file inside a card. Cover-fit: the cell already has the file's own
+ * ratio, so this only crops what TALL_CAP cut off. Video shows its first frame
+ * (the #t fragment makes Safari paint one) and plays muted while hovered.
+ */
+function CardMedia({ media, alt, playing }: { media: Media; alt: string; playing: boolean }) {
+  const [loaded, setLoaded] = useState(false)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  // Driven by the card, not the <video>'s own mouse events: the stretched
+  // link and the overlay sit on top of it and take every hover.
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    if (playing) v.play().catch(() => {})
+    else v.pause()
+  }, [playing])
+  const cls = cn(
+    "absolute inset-0 size-full object-cover transition-opacity duration-300",
+    loaded ? "opacity-100" : "opacity-0",
+  )
+  if (media.kind === "video") {
+    return (
+      <video
+        ref={videoRef}
+        src={`${media.url}#t=0.1`}
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        className={cls}
+        onLoadedData={() => setLoaded(true)}
+      />
+    )
+  }
+  return (
+    <img
+      src={media.url}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      draggable={false}
+      className={cls}
+      onLoad={() => setLoaded(true)}
+      onError={() => setLoaded(true)}
+    />
+  )
 }
 
 /**
@@ -59,6 +110,9 @@ const PinCard = memo(function PinCard({
   const morphing = useViewTransitionState(to)
   const fly = useSaveFly()
   const imgH = rect.h - footerHeight
+  const badge = pin.media ? badgeFor(pin.media) : null
+  const [hovered, setHovered] = useState(false)
+  const hoverPlays = canHover && pin.media?.kind === "video"
 
   const doSave = useCallback(() => {
     if (!imgRef.current) return
@@ -82,6 +136,8 @@ const PinCard = memo(function PinCard({
   return (
     <div
       className="group absolute top-0 left-0"
+      onMouseEnter={hoverPlays ? () => setHovered(true) : undefined}
+      onMouseLeave={hoverPlays ? () => setHovered(false) : undefined}
       style={{
         width: rect.w,
         height: rect.h,
@@ -100,9 +156,21 @@ const PinCard = memo(function PinCard({
           background: `linear-gradient(150deg, oklch(0.85 0.12 ${pin.hue}), oklch(0.6 0.16 ${(pin.hue + 40) % 360}))`,
         }}
       >
-        <span className="absolute inset-0 flex items-center justify-center text-5xl font-bold text-white/25 select-none">
-          {pin.id}
-        </span>
+        {pin.media ? (
+          <CardMedia media={pin.media} alt={pin.title} playing={hovered} />
+        ) : (
+          <span className="absolute inset-0 flex items-center justify-center text-5xl font-bold text-white/25 select-none">
+            {pin.id}
+          </span>
+        )}
+
+        {/* The tile is a still (or a paused first frame) either way, so say
+            when the file moves. Hidden on hover, where the overlay takes over. */}
+        {badge && (
+          <span className="pointer-events-none absolute top-2 left-2 z-[5] rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-white transition-opacity group-hover:opacity-0">
+            {badge}
+          </span>
+        )}
 
         {/* Stretched link to the preview. A sibling of the overlay controls,
             not their parent: buttons nested in an anchor are invalid HTML and
@@ -182,11 +250,10 @@ export function MasonryFeed({
   pins,
   onLoadMore,
   hasMore,
-}: {
-  pins: Pin[]
-  onLoadMore: () => void
-  hasMore: boolean
-}) {
+  folder,
+  openFolder,
+  closeFolder,
+}: FeedContext) {
   const scrollerRef = useRef<HTMLDivElement | null>(null)
   const [contentRef, width] = useContainerWidth<HTMLDivElement>()
   const { keyboard: keyboardSounds } = useSound()
@@ -243,6 +310,16 @@ export function MasonryFeed({
     if (lastScrollTop > 0) el.scrollTop = lastScrollTop
   }, [ready, totalHeight])
 
+  // A different source is a different feed: start it from the top. Skips the
+  // first run so a remount (back from a preview) keeps its restored position.
+  const prevFolder = useRef(folder)
+  useLayoutEffect(() => {
+    if (prevFolder.current === folder) return
+    prevFolder.current = folder
+    lastScrollTop = 0
+    if (scrollerRef.current) scrollerRef.current.scrollTop = 0
+  }, [folder])
+
   const top = scrollTop - viewportH * OVERSCAN
   const bottom = scrollTop + viewportH * (1 + OVERSCAN)
 
@@ -278,9 +355,28 @@ export function MasonryFeed({
               className="h-9 w-full rounded-full bg-muted/60 pr-4 pl-9 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
             />
           </div>
-          <span className="hidden text-xs text-muted-foreground sm:block">
-            {pins.length} pins
+          <span className="hidden max-w-48 truncate text-xs text-muted-foreground sm:block">
+            {folder ? `${folder} · ${pins.length} files` : `${pins.length} pins`}
           </span>
+          {folder ? (
+            <button
+              onClick={closeFolder}
+              aria-label="Close folder"
+              title="Back to the generated feed"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full hover:bg-muted"
+            >
+              <X className="size-5" />
+            </button>
+          ) : (
+            <button
+              onClick={openFolder}
+              aria-label="Open folder"
+              title="Show a local folder's images and videos"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full hover:bg-muted"
+            >
+              <FolderOpen className="size-5" />
+            </button>
+          )}
           <SoundControl />
         </header>
 

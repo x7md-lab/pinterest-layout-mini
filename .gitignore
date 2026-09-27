@@ -29,3 +29,6 @@ shots/
 
 # Recorded browser console output from scripts/watch-console.mjs
 scripts/console.log
+
+# Local userscript
+userscript/

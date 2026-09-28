@@ -65,15 +65,16 @@ function pickWithInput(): Promise<{ name: string; found: Found[] } | null> {
     input.addEventListener("change", () => {
       const files = [...(input.files ?? [])]
       if (!files.length) return resolve(null)
-      // webkitRelativePath is "root/sub/file.jpg".
-      const root = files[0].webkitRelativePath.split("/")[0]
+      // webkitRelativePath is "root/sub/file.jpg". iOS ignores webkitdirectory
+      // and offers a multi-file picker instead, leaving it empty.
+      const root = files[0].webkitRelativePath.split("/")[0] || "Selected files"
       resolve({
         name: root,
         found: files
           .filter((f) => !f.name.startsWith("."))
           .map((file) => ({
             file,
-            dir: file.webkitRelativePath.split("/").slice(0, -1).join("/"),
+            dir: file.webkitRelativePath.split("/").slice(0, -1).join("/") || root,
           })),
       })
     })
@@ -85,7 +86,12 @@ function pickWithInput(): Promise<{ name: string; found: Found[] } | null> {
 /** Ask for a folder. Resolves null if the user cancels. */
 export async function pickFolder(): Promise<{ name: string; found: Found[] } | null> {
   const picker = getDirectoryPicker()
-  if (!picker) return pickWithInput()
+  // Only the browser's own picker. iOS extensions (e.g. "File Picker") install
+  // a JS showDirectoryPicker that bounces through their app via a universal
+  // link; when that link isn't wired up it fails with a bare TypeError, and
+  // by then the tap's user activation is spent so we can't fall back.
+  if (!picker || !/\[native code\]/.test(String((window as { showDirectoryPicker?: unknown }).showDirectoryPicker)))
+    return pickWithInput()
   let root: FileSystemDirectoryHandle
   try {
     root = await picker({ mode: "read", id: "pinboard-folder", startIn: "pictures" })
